@@ -66,7 +66,7 @@
     .back-home a:hover {
       background-color: #1e7e34;
     }
-    /* 響應式 */
+
     @media (max-width: 600px) {
       table, thead, tbody, th, td, tr {
         display: block;
@@ -101,30 +101,28 @@
     <h1>成績資料</h1>
   </header>
 
- <main>
-  <h2>成績查詢</h2>
+  <main>
+    <h2>成績查詢</h2>
 
-  <table>
-    <thead>
-      <tr>
-        <th>測試時間</th>
-        <th>分數</th>
-        <th>評等</th>
-      </tr>
-    </thead>
-    <tbody id="grade-table">
-      <tr><td colspan="3">載入中...</td></tr>
-    </tbody>
-  </table>
+    <table>
+      <thead>
+        <tr>
+          <th>測試時間</th>
+          <th>分數</th>
+          <th>評等</th>
+        </tr>
+      </thead>
+      <tbody id="grade-table">
+        <tr><td colspan="3">載入中...</td></tr>
+      </tbody>
+    </table>
 
-  <!-- 新增一個顯示分數的區塊 -->
-  <div id="score" style="margin-top: 20px; font-weight: bold; text-align:center;"></div>
+    <div id="score" style="margin-top: 20px; font-weight: bold; text-align:center;"></div>
 
-  <div class="back-home">
-    <a href="home.html">回到首頁</a>
-  </div>
-</main>
-
+    <div class="back-home">
+      <a href="home.html">回到首頁</a>
+    </div>
+  </main>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/11.7.3/firebase-app-compat.js"></script>
@@ -141,11 +139,10 @@
       appId: "1:926810721151:web:70da1b738f58ea7692284a",
       measurementId: "G-09SC8T46GD"
     };
+
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const auth = firebase.auth();
-
-    const scoreDiv = document.getElementById("score");
 
     function scoreToGrade(score) {
       switch(score) {
@@ -156,38 +153,46 @@
       }
     }
 
-   auth.onAuthStateChanged(user => {
-  const gradeTable = document.getElementById("grade-table");
-  gradeTable.innerHTML = ""; // 清空載入中
+    auth.onAuthStateChanged(user => {
+      const gradeTable = document.getElementById("grade-table");
+      gradeTable.innerHTML = "";
 
-  if (!user) {
-    gradeTable.innerHTML = `<tr><td colspan="3">請先登入以查看成績。</td></tr>`;
-    return;
-  }
+      if (!user) {
+        gradeTable.innerHTML = `<tr><td colspan="3">請先登入以查看成績。</td></tr>`;
+        return;
+      }
 
-  const docRef = db.collection("user_scores").doc(user.uid);
-  docRef.get().then(doc => {
-    if (doc.exists) {
-      const score = doc.data().score || 0;
-      const grade = scoreToGrade(score);
-      const now = new Date().toLocaleString();
-      gradeTable.innerHTML = `
-        <tr>
-          <td>${now}</td>
-          <td>${score}</td>
-          <td>${grade}</td>
-        </tr>
-      `;
-    } else {
-      gradeTable.innerHTML = `<tr><td colspan="3">尚無成績紀錄</td></tr>`;
-    }
-  }).catch(err => {
-    gradeTable.innerHTML = `<tr><td colspan="3">讀取成績時發生錯誤</td></tr>`;
-    console.error(err);
-  });
-});
+      db.collection("user_scores")
+        .doc(user.uid)
+        .collection("records")
+        .orderBy("timestamp", "desc")
+        .get()
+        .then(querySnapshot => {
+          if (querySnapshot.empty) {
+            gradeTable.innerHTML = `<tr><td colspan="3">尚無成績紀錄</td></tr>`;
+            return;
+          }
 
+          querySnapshot.forEach(doc => {
+            const data = doc.data();
+            const score = data.score || 0;
+            const grade = scoreToGrade(score);
+            const timestamp = data.timestamp?.toDate().toLocaleString() || "未知時間";
+
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${timestamp}</td>
+              <td>${score}</td>
+              <td>${grade}</td>
+            `;
+            gradeTable.appendChild(row);
+          });
+        })
+        .catch(err => {
+          gradeTable.innerHTML = `<tr><td colspan="3">讀取成績時發生錯誤</td></tr>`;
+          console.error(err);
+        });
+    });
   </script>
-
 </body>
 </html>

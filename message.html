@@ -6,7 +6,6 @@
   <title>留言板 - 銲接證照考試訓練</title>
   <link rel="stylesheet" href="style.css"/>
   <style>
-    /* 保留你原本的美化樣式 */
     body {
       font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
       background-color: #f7f7f7;
@@ -56,17 +55,22 @@
       margin-bottom: 12px;
       border-left: 6px solid #e25822;
       border-radius: 8px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
       color: #000;
+      list-style: none;
     }
-    .delete-btn {
+    .nested {
+      margin-left: 40px;
+    }
+    .delete-btn, .reply-btn {
+      margin-left: 10px;
       background: none;
       border: none;
-      color: #c00;
-      font-size: 18px;
       cursor: pointer;
+      font-size: 14px;
+      color: #555;
+    }
+    .delete-btn:hover {
+      color: #c00;
     }
     .back-home {
       text-align: center;
@@ -87,8 +91,8 @@
   </style>
 </head>
 <body>
-  <header class="new">
-    <h1>留言板</h1>
+  <header>
+    <h1 style="text-align:center;">留言板</h1>
   </header>
 
   <section class="message-board">
@@ -96,6 +100,7 @@
     <form id="message-form">
       <label for="message">留言內容:</label>
       <textarea id="message" rows="4" required></textarea>
+      <input type="hidden" id="parentId" value="">
       <button type="submit">送出留言</button>
     </form>
 
@@ -105,21 +110,14 @@
     </div>
   </section>
 
-  <!-- 將「回首頁」放在頁面底部 -->
   <div class="back-home">
     <a href="home.html">回到首頁</a>
   </div>
 
-  <footer>
-  </footer>
-
-  <!-- Firebase 模組載入 -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-app.js";
     import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.7.3/firebase-auth.js";
 
-    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyCqoHAGQ42luK6k0v9XiRP59Es4gpVm95Q",
       authDomain: "learningproject-fc101.firebaseapp.com",
@@ -132,58 +130,116 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    const auth = getAuth(app);
 
     const form = document.getElementById("message-form");
     const messageInput = document.getElementById("message");
     const messagesEl = document.getElementById("messages");
+    const parentIdInput = document.getElementById("parentId");
 
-    let currentUser = null;
+    // 建立唯一 localStorage 使用者 ID（模擬登入）
+    let localUserId = localStorage.getItem("localUserId");
+    if (!localUserId) {
+      localUserId = "user_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+      localStorage.setItem("localUserId", localUserId);
+    }
 
-    onAuthStateChanged(auth, user => {
-      if (!user) {
-        alert("請先登入才能留言");
-        form.style.display = "none";
-        return;
-      }
-      currentUser = user;
+    // 監聽留言變動並渲染
+    onSnapshot(collection(db, "messages"), (snapshot) => {
+      const allMessages = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        allMessages.push({ id: docSnap.id, ...data });
+      });
 
-      // 發送留言
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const content = messageInput.value.trim();
-        if (content) {
-          await addDoc(collection(db, "messages"), {
-            uid: user.uid,
-            email: user.email,
-            content,
-            time: Date.now()
-          });
-          messageInput.value = "";
+      // 按時間新→舊排序
+      allMessages.sort((a, b) => b.time - a.time);
+
+      // 建立以 id 為鍵的 map 和巢狀結構
+      const map = {};
+      const roots = [];
+      allMessages.forEach(msg => {
+        msg.children = [];
+        map[msg.id] = msg;
+      });
+      allMessages.forEach(msg => {
+        if (msg.parentId && map[msg.parentId]) {
+          map[msg.parentId].children.push(msg);
+        } else {
+          roots.push(msg);
         }
       });
 
-      // 顯示留言
-      onSnapshot(collection(db, "messages"), (snapshot) => {
-        messagesEl.innerHTML = "";
-        snapshot.forEach(docSnap => {
-          const data = docSnap.data();
-          const li = document.createElement("li");
-          li.innerHTML = `<span><strong>${data.email}：</strong> ${data.content}</span>`;
-          if (data.uid === currentUser.uid) {
-            const btn = document.createElement("button");
-            btn.className = "delete-btn";
-            btn.innerText = "🗑️";
-            btn.title = "刪除";
-            btn.onclick = () => {
-              deleteDoc(doc(db, "messages", docSnap.id));
-            };
-            li.appendChild(btn);
-          }
-          messagesEl.appendChild(li);
-        });
-      });
+      // 清空舊留言
+      messagesEl.innerHTML = "";
+
+      // 遞迴渲染留言及回覆
+      function renderMessage(msg, container, isReply = false) {
+        const li = document.createElement("li");
+        if (isReply) li.classList.add("nested");
+        li.innerHTML = `
+          <div>${escapeHtml(msg.content)}</div>
+          <small>${new Date(msg.time).toLocaleString()}</small>
+        `;
+
+        // 回覆按鈕
+        const replyBtn = document.createElement("button");
+        replyBtn.className = "reply-btn";
+        replyBtn.innerText = "回覆";
+        replyBtn.onclick = () => {
+          parentIdInput.value = msg.id;
+          messageInput.focus();
+        };
+        li.appendChild(replyBtn);
+
+        // 刪除按鈕（僅自己留言可刪）
+        if (msg.userId === localUserId) {
+          const delBtn = document.createElement("button");
+          delBtn.className = "delete-btn";
+          delBtn.innerText = "🗑️";
+          delBtn.onclick = async () => {
+            // 刪除留言前要先確定是否有回覆？(本範例直接刪)
+            await deleteDoc(doc(db, "messages", msg.id));
+          };
+          li.appendChild(delBtn);
+        }
+
+        container.appendChild(li);
+
+        // 子留言遞迴
+        if (msg.children.length > 0) {
+          const ul = document.createElement("ul");
+          msg.children.forEach(child => renderMessage(child, ul, true));
+          container.appendChild(ul);
+        }
+      }
+
+      roots.forEach(msg => renderMessage(msg, messagesEl));
     });
+
+    // 送出留言
+    form.addEventListener("submit", async e => {
+      e.preventDefault();
+      const content = messageInput.value.trim();
+      const parentId = parentIdInput.value || null;
+      if (!content) return alert("請輸入留言內容");
+
+      await addDoc(collection(db, "messages"), {
+        userId: localUserId,
+        content,
+        parentId,
+        time: Date.now()
+      });
+
+      messageInput.value = "";
+      parentIdInput.value = "";
+    });
+
+    // 輔助：防止 XSS
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.innerText = text;
+      return div.innerHTML;
+    }
   </script>
 </body>
 </html>

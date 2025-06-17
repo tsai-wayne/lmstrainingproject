@@ -3,8 +3,8 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 
 const targetId = "edebe72a9bd44de89fbdbc768b3bd6c5"; // 你的分數屬性ID
+let lastRecordedScore = null; // 避免重複記錄相同分數
 
-// 等 DiVE 載入完畢
 function waitForDiveLoaded(callback) {
   const intervalId = setInterval(() => {
     if (diveLinker.getLoadingStatus()) {
@@ -30,21 +30,21 @@ window.onload = () => {
         let score = parseInt(diveLinker.getAttr(targetId));
         if (isNaN(score)) score = 0;
 
-        const userScoreRef = db.collection("user_scores").doc(user.uid);
+        // 如果是有效新分數，且與上一筆不同，才記錄
+        if (score > 0 && score !== lastRecordedScore) {
+          lastRecordedScore = score;
 
-        userScoreRef.get().then(doc => {
-          let bestScore = score;
-          if (doc.exists) {
-            const prevScore = doc.data().score || 0;
-            if (prevScore > bestScore) bestScore = prevScore;
-          }
-
-          userScoreRef.set({ score: bestScore, updated: new Date() })
-            .then(() => console.log("分數存入成功", bestScore))
-            .catch(err => console.error("存分數錯誤", err));
-
-        }).catch(err => console.error("讀取分數錯誤", err));
-      }, 2000);
+          db.collection("user_scores")
+            .doc(user.uid)
+            .collection("records")
+            .add({
+              score: score,
+              timestamp: new Date()
+            })
+            .then(() => console.log("✅ 成績儲存:", score))
+            .catch(err => console.error("❌ 儲存錯誤:", err));
+        }
+      }, 1000); // 每秒檢查一次（可調整）
     });
   });
 };
