@@ -96,9 +96,27 @@
     <!-- ✅ 自己的 IO.js 腳本 -->
     <script src="IO.js"></script>
 
-    <div class="back-home">
-      <a href="practice.html">回上一頁</a>
-    </div>
+  <button id="finishBtn">完成本題</button>
+<script>
+  const currentIndex = 1; // 根據題號改成 1~8
+  document.getElementById("finishBtn").addEventListener("click", () => {
+    const finishedCount = parseInt(localStorage.getItem("finishedCount")) || 0;
+    const unlockedCount = parseInt(localStorage.getItem("unlockedCount")) || 1;
+
+    // 如果目前完成比記錄更多，更新
+    if (currentIndex > finishedCount) {
+      localStorage.setItem("finishedCount", currentIndex);
+    }
+
+    // 如果這題剛好是目前最後解鎖的，解鎖下一題
+    if (currentIndex === unlockedCount && unlockedCount < 8) {
+      localStorage.setItem("unlockedCount", unlockedCount + 1);
+    }
+
+    alert("本題已完成！");
+    window.location.href = "practice.html"; // 回到選題頁
+  });
+</script>
   </main>
 </body>
 </html>

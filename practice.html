@@ -13,7 +13,6 @@
       padding: 0;
       color: #333;
     }
-
     header {
       background-color: rgba(0, 0, 0, 0.85);
       color: #FF4500;
@@ -21,7 +20,6 @@
       text-align: center;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
     }
-
     main {
       max-width: 1000px;
       margin: 30px auto;
@@ -30,19 +28,16 @@
       border-radius: 10px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     }
-
     h2 {
       text-align: center;
       color: #28a745;
       margin-bottom: 30px;
     }
-
     .grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 20px;
     }
-
     .grid-item {
       background-color: #f0f0f0;
       border-radius: 8px;
@@ -54,13 +49,16 @@
       text-align: center;
       transition: transform 0.3s ease, box-shadow 0.3s ease;
       position: relative;
+      cursor: pointer;
     }
-
     .grid-item:hover {
       transform: scale(1.03);
       box-shadow: 0 6px 12px rgba(0,0,0,0.2);
     }
-
+    .grid-item.locked {
+      cursor: default;
+      filter: grayscale(70%);
+    }
     .grid-item.locked:hover::after {
       content: "尚未解鎖";
       position: absolute;
@@ -72,33 +70,30 @@
       padding: 5px 10px;
       border-radius: 4px;
       font-size: 14px;
+      pointer-events: none;
     }
-
     .grid-item img {
       width: 100%;
       height: 140px;
       object-fit: cover;
+      user-select: none;
     }
-
     .grid-item span {
       display: block;
       padding: 10px 5px;
       font-weight: bold;
       background-color: #e0e0e0;
       min-height: 40px;
+      user-select: none;
     }
-
     a.grid-item {
       text-decoration: none;
       color: inherit;
-      cursor: pointer;
     }
-
     .back-home {
       text-align: center;
       margin-top: 40px;
     }
-
     .back-home a {
       text-decoration: none;
       color: white;
@@ -107,32 +102,41 @@
       border-radius: 4px;
       font-size: 16px;
     }
-
     .back-home a:hover {
       background-color: #1e7e34;
     }
-
     @media (max-width: 768px) {
       .grid {
         grid-template-columns: repeat(2, 1fr);
       }
     }
-
     @media (max-width: 480px) {
       .grid {
         grid-template-columns: 1fr;
       }
     }
-
-    /* 點擊動畫 */
     .clicked {
       animation: clickPop 0.3s ease;
     }
-
     @keyframes clickPop {
-      0%   { transform: scale(1); }
-      50%  { transform: scale(0.9); }
+      0% { transform: scale(1); }
+      50% { transform: scale(0.9); }
       100% { transform: scale(1); }
+    }
+    /* 測試用清除按鈕 */
+    #clearBtn {
+      margin-top: 30px;
+      display: inline-block;
+      padding: 8px 16px;
+      background: #dc3545;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+      user-select: none;
+      text-align: center;
+    }
+    #clearBtn:hover {
+      background: #b02a37;
     }
   </style>
 </head>
@@ -150,14 +154,37 @@
     <div class="back-home">
       <a href="home.html">回到首頁</a>
     </div>
+
+    <div style="text-align:center;">
+      <div id="clearBtn" title="清除進度（測試用）">清除進度</div>
+    </div>
   </main>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+  </script>
 
 <script>
   const grid = document.getElementById("question-grid");
 
   const imageList = [
-    "thing.jpg", "thing.jpg", "thing.jpg", "lock.png",
-    "lock.png", "lock.png", "lock.png", "lock.png"
+    "thing.jpg", "thing.jpg", "thing.jpg", "thing.jpg",
+    "thing.jpg", "thing.jpg", "thing.jpg", "thing.jpg"
   ];
 
   const titleList = [
@@ -166,48 +193,58 @@
   ];
 
   const pageLinks = [
-    "dive1.html", "dive2.html", "dive3.html", "#",
-    "#", "#", "#", "#"
+    "dive1.html", "dive2.html", "dive3.html", "dive4.html",
+    "dive5.html", "dive6.html", "dive7.html", "dive8.html"
   ];
 
-  const unlockedCount = parseInt(localStorage.getItem("unlockedCount")) || 1;
-  const finishedCount = parseInt(localStorage.getItem("finishedCount")) || 0;
+  // 取得進度
+  let unlockedCount = parseInt(localStorage.getItem("unlockedCount"));
+  if (isNaN(unlockedCount) || unlockedCount < 1) unlockedCount = 1;
 
+  let finishedCount = parseInt(localStorage.getItem("finishedCount"));
+  if (isNaN(finishedCount) || finishedCount < 0) finishedCount = 0;
+
+  // 建立格子
   for (let i = 1; i <= 8; i++) {
-    const title = titleList[i - 1];
+    const index = i - 1;
     const isUnlocked = i <= unlockedCount;
-    const isFinished = i <= finishedCount;
 
-    const item = document.createElement(isUnlocked ? "a" : "div");
-    item.className = "grid-item" + (isUnlocked ? "" : " locked");
+    let item;
+    if (isUnlocked) {
+      item = document.createElement("a");
+      item.href = pageLinks[index];
+    } else {
+      item = document.createElement("div");
+      item.classList.add("locked");
+    }
+    item.classList.add("grid-item");
 
-    const imgSrc = isFinished ? imageList[i - 1] : "lock.png";
+    const imgSrc = isUnlocked ? imageList[index] : "lock.png";
 
-    const link = pageLinks[i - 1];
-    if (isUnlocked && link !== "#") {
-      item.href = link;
+    item.innerHTML = `
+      <img src="image/${imgSrc}" alt="${titleList[index]}">
+      <span>${titleList[index]}</span>
+    `;
+
+    // 點擊動畫效果
+    if (isUnlocked) {
       item.addEventListener("click", (e) => {
         item.classList.add("clicked");
         setTimeout(() => item.classList.remove("clicked"), 300);
-
-        if (i > finishedCount) {
-          localStorage.setItem("finishedCount", i);
-          if (i === unlockedCount && i < 8) {
-            localStorage.setItem("unlockedCount", unlockedCount + 1);
-          }
-        }
       });
     }
 
-    item.innerHTML = `
-      <img src="image/${imgSrc}" alt="${title}">
-      <span>${title}</span>
-    `;
-
     grid.appendChild(item);
   }
+
+  // 測試用：清除進度
+  document.getElementById("clearBtn").addEventListener("click", () => {
+    if (confirm("確定要清除所有進度嗎？")) {
+      localStorage.removeItem("unlockedCount");
+      localStorage.removeItem("finishedCount");
+      location.reload();
+    }
+  });
 </script>
-
-
 </body>
 </html>
