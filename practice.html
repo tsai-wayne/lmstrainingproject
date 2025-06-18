@@ -205,37 +205,39 @@
   if (isNaN(finishedCount) || finishedCount < 0) finishedCount = 0;
 
   // 建立格子
-  for (let i = 1; i <= 8; i++) {
-    const index = i - 1;
-    const isUnlocked = i <= unlockedCount;
+  // 建立格子
+for (let i = 1; i <= 3; i++) {  // 僅保留前三題
+  const index = i - 1;
+  const isUnlocked = i <= unlockedCount;
 
-    let item;
-    if (isUnlocked) {
-      item = document.createElement("a");
-      item.href = pageLinks[index];
-    } else {
-      item = document.createElement("div");
-      item.classList.add("locked");
-    }
-    item.classList.add("grid-item");
-
-    const imgSrc = isUnlocked ? imageList[index] : "lock.png";
-
-    item.innerHTML = `
-      <img src="image/${imgSrc}" alt="${titleList[index]}">
-      <span>${titleList[index]}</span>
-    `;
-
-    // 點擊動畫效果
-    if (isUnlocked) {
-      item.addEventListener("click", (e) => {
-        item.classList.add("clicked");
-        setTimeout(() => item.classList.remove("clicked"), 300);
-      });
-    }
-
-    grid.appendChild(item);
+  let item;
+  if (isUnlocked) {
+    item = document.createElement("a");
+    item.href = pageLinks[index];
+  } else {
+    item = document.createElement("div");
+    item.classList.add("locked");
   }
+  item.classList.add("grid-item");
+
+  const imgSrc = isUnlocked ? imageList[index] : "lock.png";
+
+  item.innerHTML = `
+    <img src="image/${imgSrc}" alt="${titleList[index]}">
+    <span>${titleList[index]}</span>
+  `;
+
+  // 點擊動畫效果
+  if (isUnlocked) {
+    item.addEventListener("click", (e) => {
+      item.classList.add("clicked");
+      setTimeout(() => item.classList.remove("clicked"), 300);
+    });
+  }
+
+  grid.appendChild(item);
+}
+
 
   // 測試用：清除進度
   document.getElementById("clearBtn").addEventListener("click", () => {
