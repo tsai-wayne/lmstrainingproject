@@ -152,43 +152,62 @@
     </div>
   </main>
 
-  <script>
+<script>
   const grid = document.getElementById("question-grid");
 
   const imageList = [
-    "thing.jpg", "lock.png", "lock.png", "lock.png",
+    "thing.jpg", "thing.jpg", "thing.jpg", "lock.png",
     "lock.png", "lock.png", "lock.png", "lock.png"
   ];
 
   const titleList = [
-    "A1F2", "A1H2", "A1V2", "A1O2",
+    "假組練習", "假銲練習", "焊接練習", "A1O2",
     "A2F3", "A2H3", "A2V3", "A2O3"
   ];
 
+  const pageLinks = [
+    "dive1.html", "dive2.html", "dive3.html", "#",
+    "#", "#", "#", "#"
+  ];
+
+  const unlockedCount = parseInt(localStorage.getItem("unlockedCount")) || 1;
+  const finishedCount = parseInt(localStorage.getItem("finishedCount")) || 0;
+
   for (let i = 1; i <= 8; i++) {
-    const id = `dive${i}`;
-    const img = imageList[i - 1];
     const title = titleList[i - 1];
-    const isUnlocked = i <= 1;
+    const isUnlocked = i <= unlockedCount;
+    const isFinished = i <= finishedCount;
 
     const item = document.createElement(isUnlocked ? "a" : "div");
     item.className = "grid-item" + (isUnlocked ? "" : " locked");
-    if (isUnlocked) {
-      item.href = `${id}.html`;
+
+    const imgSrc = isFinished ? imageList[i - 1] : "lock.png";
+
+    const link = pageLinks[i - 1];
+    if (isUnlocked && link !== "#") {
+      item.href = link;
       item.addEventListener("click", (e) => {
         item.classList.add("clicked");
         setTimeout(() => item.classList.remove("clicked"), 300);
+
+        if (i > finishedCount) {
+          localStorage.setItem("finishedCount", i);
+          if (i === unlockedCount && i < 8) {
+            localStorage.setItem("unlockedCount", unlockedCount + 1);
+          }
+        }
       });
     }
 
     item.innerHTML = `
-      <img src="image/${img}" alt="${title}">
+      <img src="image/${imgSrc}" alt="${title}">
       <span>${title}</span>
     `;
 
     grid.appendChild(item);
   }
 </script>
+
 
 </body>
 </html>
